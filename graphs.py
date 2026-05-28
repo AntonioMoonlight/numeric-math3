@@ -41,7 +41,6 @@ def create_integration_plot(f, a, b, n, method: IntegrationMethod):
     y_finite = y_fine[np.isfinite(y_fine)]
     if len(y_finite) > 0:
         y_min, y_max = np.min(y_finite), np.max(y_finite)
-        # Если разброс огромен (несобственный интеграл), ограничиваем по 5 и 95 перцентилям
         p_low, p_high = np.percentile(y_finite, [5, 95])
         margin = (p_high - p_low) * 0.2 if p_high != p_low else 1.0
         ax.set_ylim(min(y_min, p_low - margin), max(y_max, p_high + margin))
