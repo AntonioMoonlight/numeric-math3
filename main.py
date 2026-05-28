@@ -2,7 +2,7 @@ import streamlit as st
 import math
 import methods
 import graphs
-from constants import IntegrationMethod, METHOD_LABELS, functions
+from constants import METHOD_LABELS, functions
 
 
 def main():
@@ -34,10 +34,16 @@ def main():
         result, final_n = methods.integrate_with_runge(f, a, b, eps, 4, method_id)
 
         col1, col2 = st.columns(2)
-        col1.metric("Значение интеграла", f"{result:.{precision}f}")
-        col2.metric("Узлов разбиения", final_n)
+        if isinstance(result, str):
+            col1.metric("Результат", result)
+        else:
+            col1.metric("Значение интеграла", f"{result:.{precision}f}")
+            col2.metric("Число разбиений", final_n)
 
-        fig = graphs.create_integration_plot(f, a, b, final_n, method_id)
+        if 1 <= final_n <= 1000:
+            fig = graphs.create_integration_plot(f, a, b, final_n, method_id)
+        else:
+            fig = graphs.create_function_plot(f, a, b)
         st.pyplot(fig)
 
 if __name__ == "__main__":
