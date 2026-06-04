@@ -1,100 +1,94 @@
 import math
-from constants import IntegrationMethod
+from constants import IntMethod
 
-def safe_eval(f, x, a, b, h):
-    try:
-        val = f(x)
-        if math.isfinite(val): return val
-    except:
-        pass
+def left_rectangles(f, a, b, n, h):
+    return h * sum(f(a + i * h) for i in range(n))
 
-    offset = h / 4
-    if x <= a: return f(a + offset)
-    if x >= b: return f(b - offset)
-    return 0
+def right_rectangles(f, a, b, n, h):
+    return h * sum(f(a + (i + 1) * h) for i in range(n))
 
+def midpoint_rectangles(f, a, b, n, h):
+    return h * sum(f(a + (i + 0.5) * h) for i in range(n))
 
-def left_rectangles(f, a, b, n):
-    h = (b - a) / n
-    return h * sum(safe_eval(f, a + i * h, a, b, h) for i in range(n))
-
-
-def right_rectangles(f, a, b, n):
-    h = (b - a) / n
-    return h * sum(safe_eval(f, a + (i + 1) * h, a, b, h) for i in range(n))
-
-
-def midpoint_rectangles(f, a, b, n):
-    h = (b - a) / n
-    return h * sum(safe_eval(f, a + (i + 0.5) * h, a, b, h) for i in range(n))
-
-
-def trapezoidal_rule(f, a, b, n):
-    h = (b - a) / n
-    s = 0.5 * (safe_eval(f, a, a, b, h) + safe_eval(f, b, a, b, h))
+def trapezoidal_rule(f, a, b, n, h):
+    s = (f(a) + f(b)) / 2
     for i in range(1, n):
-        s += safe_eval(f, a + i * h, a, b, h)
+        s += f(a + i * h)
     return h * s
 
-
-def simpson_rule(f, a, b, n):
+def simpson_rule(f, a, b, n, h):
     if n % 2 != 0: n += 1
     h = (b - a) / n
-    s = safe_eval(f, a, a, b, h) + safe_eval(f, b, a, b, h)
+    s = f(a) + f(b)
     for i in range(1, n):
-        coeff = 4 if i % 2 != 0 else 2
-        s += coeff * safe_eval(f, a + i * h, a, b, h)
+        s += (4 if i % 2 != 0 else 2) * f(a + i * h)
     return (h / 3) * s
 
-def get_singularities(f, a, b):
-    points = []
-    for x in [a, b]:
+METHOD_FUNCTIONS = {
+    IntMethod.LEFT_RECTANGLE: left_rectangles,
+    IntMethod.RIGHT_RECTANGLE: right_rectangles,
+    IntMethod.MID_RECTANGLE: midpoint_rectangles,
+    IntMethod.TRAPEZOIDAL: trapezoidal_rule,
+    IntMethod.SIMPSON: simpson_rule
+}
+
+def get_safe_func(f):
+    def wrapped(x):
         try:
             val = f(x)
-            if not math.isfinite(val): points.append(x)
-        except:
-            points.append(x)
-    return points
+            return val if math.isfinite(val) else None
+        except (ZeroDivisionError, OverflowError):
+            return None
+    return wrapped
 
 
-def check_convergence(f, sing_point, a, b):
-    eps = 1e-6
-    delta = eps / 2
-    side = 1 if sing_point == a else -1
-    try:
-        v1 = abs(f(sing_point + side * eps))
-        v2 = abs(f(sing_point + side * delta))
-        if v1 == 0: return True
+def check_divergence(f_safe, a, b):
+    eps = 1e-7
+    for pt, side in [(a, 1), (b, -1)]:
+        v1 = f_safe(pt + side * eps)
+        v2 = f_safe(pt + side * eps * 2)
 
-        p = math.log(v2 / v1) / math.log(2)
-        return p < 1.0
-    except:
-        return False
+        if v1 is None or v2 is None: continue  # Точка разрыва
 
-def integrate_with_runge(f, a, b, eps, n_start, method_name):
-    methods_map = {
-        IntegrationMethod.LEFT_RECTANGLE: (left_rectangles, 1),
-        IntegrationMethod.RIGHT_RECTANGLE: (right_rectangles, 1),
-        IntegrationMethod.MIDPOINT_RECTANGLE: (midpoint_rectangles, 2),
-        IntegrationMethod.TRAPEZOIDAL: (trapezoidal_rule, 2),
-        IntegrationMethod.SIMPSON: (simpson_rule, 4)
-    }
+        if abs(v1) > 1e3:  # Если значение вблизи границы очень большое
+            # Оценка порядка роста p: f(x) ~ 1/x^p
+            # p = log2(f(eps)/f(2*eps))
+            try:
+                p = math.log2(abs(v1 / v2))
+                if p >= 1.0: return True  # Расходится
+            except (ValueError, ZeroDivisionError):
+                pass
+    return False
 
-    for pt in get_singularities(f, a, b):
-        if not check_convergence(f, pt, a, b):
-            return "Интеграл расходится", 0
 
-    func, p = methods_map[method_name]
+def integrate_with_runge(f, a, b, eps, n_start, method_enum):
+    f_safe = get_safe_func(f)
+
+    if check_divergence(f_safe, a, b):
+        return "Интеграл расходится", 0
+
+    offset = 1e-9
+    safe_a = a + offset if f_safe(a) is None else a
+    safe_b = b - offset if f_safe(b) is None else b
+
+    final_f = lambda x: f_safe(x) or 0
+
+    calc_func = METHOD_FUNCTIONS[method_enum]
+    k = method_enum.k
     n = n_start
-    i_n = func(f, a, b, n)
+
+    h = (safe_b - safe_a) / n
+    i_n = calc_func(final_f, safe_a, safe_b, n, h)
 
     while n < 1_000_000:
         n *= 2
-        i_2n = func(f, a, b, n)
+        h = (safe_b - safe_a) / n
+        i_2n = calc_func(final_f, safe_a, safe_b, n, h)
 
-        error = abs(i_2n - i_n) / (2 ** p - 1)
+        error = abs(i_2n - i_n) / (2 ** k - 1)
         if error < eps:
             return i_2n, n
 
         i_n = i_2n
+
     return i_n, n
