@@ -21,7 +21,8 @@ def simpson_rule(f, a, b, n, h):
     h = (b - a) / n
     s = f(a) + f(b)
     for i in range(1, n):
-        s += (4 if i % 2 != 0 else 2) * f(a + i * h)
+        coeff = 4 if i % 2 != 0 else 2
+        s += coeff * f(a + i * h)
     return (h / 3) * s
 
 METHOD_FUNCTIONS = {
@@ -59,18 +60,18 @@ def check_divergence(f_safe, a, b):
     return False
 
 
-def _integrate_fixed(final_f, a, b, eps, n_start, method_enum, max_n=10_000):
-    calc_func = METHOD_FUNCTIONS[method_enum]
-    k = method_enum.k
+def _integrate_runge(f, a, b, eps, n_start, method, max_n=10_000):
+    call_method = METHOD_FUNCTIONS[method]
+    k = method.k
     n = n_start
 
     h = (b - a) / n
-    i_n = calc_func(final_f, a, b, n, h)
+    i_n = call_method(f, a, b, n, h)
 
     while n < max_n:
         n *= 2
         h = (b - a) / n
-        i_2n = calc_func(final_f, a, b, n, h)
+        i_2n = call_method(f, a, b, n, h)
 
         error = abs(i_2n - i_n) / (2 ** k - 1)
         if error < eps:
@@ -89,7 +90,7 @@ def _find_singularity(f_safe, a, b, samples=None):
     if step == 0:
         return None
 
-    big_dyn = max(1e3, 1.0 / abs(step))
+    large_value = max(1e3, 1.0 / abs(step))
 
     prev_x = a
     prev_v = f_safe(a)
@@ -103,12 +104,12 @@ def _find_singularity(f_safe, a, b, samples=None):
 
         if prev_v is not None and v is not None:
             if v * prev_v < 0:
-                if abs(v) > big_dyn or abs(prev_v) > big_dyn:
+                if abs(v) > large_value or abs(prev_v) > large_value:
                     return (x + prev_x) / 2
                 if (abs(v) > 10 * abs(prev_v)) or (abs(prev_v) > 10 * abs(v)):
                     return (x + prev_x) / 2
 
-            if abs(v) > big_dyn and abs(prev_v) > big_dyn:
+            if abs(v) > large_value and abs(prev_v) > large_value:
                 return (x + prev_x) / 2
 
         prev_x, prev_v = x, v
@@ -133,8 +134,8 @@ def _principal_value(f_safe, a, b, eps, n_start, method_enum, c=None):
         if left_b <= a or right_a >= b:
             break
 
-        val_l, n_l = _integrate_fixed(final_f, a, left_b, eps / 2, n_start, method_enum)
-        val_r, n_r = _integrate_fixed(final_f, right_a, b, eps / 2, n_start, method_enum)
+        val_l, n_l = _integrate_runge(final_f, a, left_b, eps / 2, n_start, method_enum)
+        val_r, n_r = _integrate_runge(final_f, right_a, b, eps / 2, n_start, method_enum)
 
         val = val_l + val_r
         last_n = max(n_l, n_r)
@@ -148,7 +149,7 @@ def _principal_value(f_safe, a, b, eps, n_start, method_enum, c=None):
     return (prev, last_n) if prev is not None else None
 
 
-def integrate_with_runge(f, a, b, eps, n_start, method_enum):
+def integrate(f, a, b, eps, n_start, method_enum):
     f_safe = get_safe_func(f)
 
     c = _find_singularity(f_safe, a, b)
@@ -169,4 +170,4 @@ def integrate_with_runge(f, a, b, eps, n_start, method_enum):
 
     final_f = lambda x: f_safe(x) or 0
 
-    return _integrate_fixed(final_f, safe_a, safe_b, eps, n_start, method_enum)
+    return _integrate_runge(final_f, safe_a, safe_b, eps, n_start, method_enum)

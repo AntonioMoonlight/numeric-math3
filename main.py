@@ -27,6 +27,8 @@ def main():
     b = get_float_input(r"Верхний предел $b$", value=3.0)
     eps = get_float_input(r"Требуемая точность $\varepsilon$", value=0.01)
     precision = max(0, math.ceil(-math.log10(eps)))
+    
+    n_start = st.sidebar.number_input(r"Начальное число разбиений $n_0$", value=4, step=1, min_value=1)
 
     selected_method = st.sidebar.selectbox(
         "Метод интегрирования",
@@ -36,7 +38,7 @@ def main():
 
     if st.sidebar.button("Рассчитать"):
         try:
-            result, final_n = methods.integrate_with_runge(f, a, b, eps, 4, selected_method)
+            result, final_n = methods.integrate(f, a, b, eps, n_start, selected_method)
 
             col1, col2 = st.columns(2)
             if isinstance(result, str):
