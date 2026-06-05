@@ -3,19 +3,13 @@ import numpy as np
 from constants import IntMethod
 
 
-# --- В файле graphs.py ---
-
 def create_integration_plot(f, a, b, n, method: IntMethod):
-    # Защита от n=0 (если интеграл разошелся)
-    if n <= 0:
-        return plt.figure()
+    fig, ax = plt.subplots(figsize=(10, 5))
 
     MAX_PLOT_N = 1000
     n_plot = int(min(n, MAX_PLOT_N))
     if method == IntMethod.SIMPSON and n_plot % 2 != 0:
         n_plot += 1
-
-    fig, ax = plt.subplots(figsize=(10, 5))
 
     def f_nan_safe(x):
         try:
@@ -28,7 +22,7 @@ def create_integration_plot(f, a, b, n, method: IntMethod):
 
     x_fine = np.linspace(a, b, 1000)
     y_fine = vf(x_fine)
-    ax.plot(x_fine, y_fine, color='black', linewidth=1.5, alpha=0.7, label='f(x)')
+    ax.plot(x_fine, y_fine, color='black', linewidth=1.5, alpha=0.7, label='_nolegend_')
 
     y_finite = y_fine[np.isfinite(y_fine)]
     if len(y_finite) > 0:
@@ -49,12 +43,12 @@ def create_integration_plot(f, a, b, n, method: IntMethod):
 
         y_bars = vf(x_bars)
         ax.bar(x_nodes[:-1], y_bars, width=h, align='edge', alpha=0.3,
-               color='skyblue', edgecolor='navy', label=method.label)
+               color='skyblue', edgecolor='navy', label='_nolegend_')
 
     elif method == IntMethod.TRAPEZOIDAL:
         y_nodes = vf(x_nodes)
         ax.fill_between(x_nodes, 0, y_nodes, alpha=0.3,
-                        color='lightgreen', edgecolor='green', label=method.label)
+                        color='lightgreen', edgecolor='green', label='_nolegend_')
 
     elif method == IntMethod.SIMPSON:
         x_parts, y_parts = [], []
@@ -71,10 +65,13 @@ def create_integration_plot(f, a, b, n, method: IntMethod):
 
         if x_parts:
             ax.fill_between(x_parts, 0, y_parts, alpha=0.3,
-                            color='plum', edgecolor='purple', label=method.label)
+                            color='plum', edgecolor='purple', label='_nolegend_')
 
     ax.axhline(0, color='black', linewidth=0.8)
     ax.axvline(0, color='black', linewidth=0.8)
     ax.grid(True, linestyle=':', alpha=0.6)
-    ax.legend()
+
+    ax.plot([], [], ' ', label=f"Число итераций: {n_plot}")
+
+    ax.legend(loc="upper right", frameon=False)
     return fig
